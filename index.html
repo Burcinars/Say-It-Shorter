@@ -275,7 +275,7 @@ var CONFIG = {
   ENDPOINT: 'https://script.google.com/macros/s/AKfycbz8sy_FMZsIJuAOQOtbmRqBn-P03bvZCW-Dev7BEBSWBblCSi0RF1CMTMS39JCzWvTgOQ/exec',
   SALT1: 'northline-ctstate-2026',
   ACTIVITY: 'SIS1',
-  VERSION: 'sis1-2026-09-23b',
+  VERSION: 'sis1-2026-09-23c',
   SECTIONS: {'13046': {label:'CRN 13046', sub:'In person · Mon/Wed 12:30'}, '13901': {label:'CRN 13901', sub:'Live online · Mon/Wed 5:30'}}
 };
 var QS = (function(){ try { return new URLSearchParams(location.search); } catch(e){ return {get:function(){ return null; }}; } })();
@@ -442,7 +442,7 @@ function recHTML(){
     var when = c.submitted.submittedAt ? new Date(c.submitted.submittedAt) : new Date();
     if (isNaN(when)) when = new Date();
     var t = when.toLocaleTimeString([], {hour:'numeric', minute:'2-digit'});
-    var again = c.submitted.already ? ' A result for this number was already saved, so the first one stands (' + esc(c.submitted.score) + ' of ' + esc(c.submitted.maxScore) + ' points).' : '';
+    var again = (c.submitted.already && c.submitted.score != null && +c.submitted.score !== total()) ? ' A result for this number was already saved earlier, so the first one stands (' + esc(c.submitted.score) + ' of ' + esc(c.submitted.maxScore) + ' points).' : '';
     return '<div class="fb good"><b>✅ Saved</b> at ' + esc(t) + ' for ' + lab + '. Record ID <b>' + esc(shortId(c.recordId)) + '</b>.' + again + '</div>' +
       '<p class="small">📸 Take a screenshot of this page. It is your proof. Your grade appears in Blackboard after the activity closes.</p>';
   }
@@ -483,7 +483,8 @@ function renderLookup(){
     var h1; try { h1 = await sha256Hex(CONFIG.SALT1 + '|' + d); } catch(e){ h1 = null; }
     var r = h1 ? await post({action:'lookup', h1:h1, section:st.cls.section, clientVersion:CONFIG.VERSION}, 60000) : null;
     if (!r || !r.ok){ f.out = '<div class="fb miss">Could not reach the server. Check the Wi-Fi and try again.</div>'; renderLookup(); return; }
-    var mine = (r.found || []).filter(function(x){ return x.activity === CONFIG.ACTIVITY; });
+    if (!Array.isArray(r.found)){ f.out = '<div class="fb note"><b>The check is not available right now.</b> Your screenshot of the Saved page is your proof. Try again later.</div>'; renderLookup(); return; }
+    var mine = r.found.filter(function(x){ return x.activity === CONFIG.ACTIVITY; });
     var fmt = function(iso){ var dd = new Date(iso); return isNaN(dd) ? String(iso) : dd.toLocaleString([], {month:'short', day:'numeric', hour:'numeric', minute:'2-digit'}); };
     if (!mine.length) f.out = '<div class="fb note"><b>No record</b> for this number in ' + esc(secLabel(st.cls.section)) + ' for Say It Shorter. If you did the class version, email Professor Calafiore with the date and the time you did it.</div>';
     else {
