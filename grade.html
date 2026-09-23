@@ -193,8 +193,9 @@ async function loadRosterText(text){
 async function loadRosterFromStorage(){
   const saved = lsGet("nl_roster_" + $("section").value, null);
   const cols = lsGet("nl_cols_" + $("section").value, []);
-  const col = cols.find(h => /activity 2|say it|shorter/i.test(h)) || "";
-  if(col) $("colHeader").value = col; else if(!$("colHeader").value) $("colHeader").value = "In Class Activity 2 [Total Pts: 10 Score]";
+  const KNOWN = {"13046":"In Class Activity 2 [Total Pts: 10 Score] |4748273", "13901":"In Class Activity 2 [Total Pts: 10 Score] |4748275"};
+  const col = cols.find(h => /activity 2|say it|shorter/i.test(h) && /\|\s*\d+\s*$/.test(h)) || KNOWN[$("section").value] || "In Class Activity 2 [Total Pts: 10 Score]";
+  $("colHeader").value = col;
   if(saved && saved.length) await installRoster(saved, "storage");
   else { roster = []; $("rosterState").textContent = "No roster saved on this computer for " + $("section").value + ". Load a Grade Center download below."; paint(); }
 }
