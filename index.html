@@ -402,7 +402,7 @@ async function signIn(){
   var h1;
   try { h1 = await sha256Hex(CONFIG.SALT1 + '|' + d); }
   catch(e){ f.err = 'This browser could not scramble your number. Open this page in Chrome, Safari, or Edge.'; f.confirm = false; renderSignin(); return; }
-  var r = await post({action:'start', h1:h1, section:st.cls.section, activity:CONFIG.ACTIVITY, code:code, clientVersion:CONFIG.VERSION}, 60000);
+  var r = await postOnce({action:'start', h1:h1, section:st.cls.section, activity:CONFIG.ACTIVITY, code:code, clientVersion:CONFIG.VERSION}, 45000);
   var unreachable = !r || r.error === 'timeout' || r.error === 'network' || r.error === 'bad_response';
   if (!unreachable && !r.ok){
     var why = {bad_code:'That class code is not right. Check it and type it again.',
@@ -447,14 +447,16 @@ function recHTML(){
       '<p class="small">📸 Take a screenshot of this page. It is your proof. Your grade appears in Blackboard after the activity closes.</p>';
   }
   if (c.submitting || !c.submitError) return '<div class="fb note"><b>⏳ Saving your result…</b> This can take up to one minute. Keep this page open.</div>';
-  var msgs = {window_closed:'The activity is closed now, so this result was not saved.', bad_code:'The class code did not match, so this result was not saved.',
+  var msgs = {window_closed:'The activity is closed now, so this result was not saved.', bad_code:'The class code did not match, so this result was not saved yet. Your answers are still here.',
     timeout:'The connection timed out.', network:'The connection failed.', bad_response:'The answer from the server was not readable.'};
   var m = msgs[c.submitError] || ('Error: ' + c.submitError + '.');
-  var retry = c.submitError === 'window_closed' || c.submitError === 'bad_code' ? '' : '<p><button class="btn blue" type="button" id="retrySubmit">Try to save again</button></p><p class="small">Check the Wi-Fi first.</p>';
+  var retry = c.submitError === 'window_closed' ? '' : (c.submitError === 'bad_code' ?
+    '<div class="signstep" style="margin-top:12px"><label class="stephead" for="fixcode"><span class="sn">!</span> Type the class code again.</label><input id="fixcode" class="field" autocomplete="off" autocapitalize="characters" spellcheck="false"><div class="btnrow" style="margin-top:12px"><button class="btn blue" type="button" id="retryCode">Save with this code</button></div></div>' :
+    '<p><button class="btn blue" type="button" id="retrySubmit">Try to save again</button></p><p class="small">Check the Wi-Fi first.</p>');
   return '<div class="fb miss"><b>⚠️ Not saved yet.</b> ' + esc(m) + '</div>' + retry +
     '<p class="small">📸 Take a screenshot of this whole page now and show it to Professor Calafiore. Backup code: <b>B-' + esc(shortId(c.h1)) + '</b>.</p>';
 }
-function refreshEndStatus(){ var b = $('#recbox'); if (!b) return; b.innerHTML = recHTML(); onClick('#retrySubmit', submitFinal); }
+function refreshEndStatus(){ var b = $('#recbox'); if (!b) return; b.innerHTML = recHTML(); onClick('#retrySubmit', submitFinal); onClick('#retryCode', function(){ var v = normalizeCode(($('#fixcode') || {}).value); if (v.length < 3) return; st.cls.code = v; st.cls.submitError = null; submitFinal(); }); }
 function endStatus(){
   if (!isClass()) return '<div class="how"><b>This was practice.</b> Nothing was saved, and no points count. For points, do the <b>class version</b> with the class code.</div>' +
     '<button class="btn soft" id="restart" type="button">↺ Start over</button>';
@@ -1146,6 +1148,7 @@ function bind(p, s){
   onClick('#goLookup', function(){ st.view = 'lookup'; st.look = null; render(); window.scrollTo(0, 0); });
   onClick('#toClass', function(){ var sec = st.cls.section; st = fresh(); st.cls.section = sec; setPoints(false); st.view = 'signin'; st.form = {id:'', code:'', confirm:false, err:''}; render(); window.scrollTo(0, 0); });
   onClick('#retrySubmit', submitFinal);
+  onClick('#retryCode', function(){ var v = normalizeCode(($('#fixcode') || {}).value); if (v.length < 3) return; st.cls.code = v; st.cls.submitError = null; submitFinal(); });
 }
 function miss(s, html, prefix, noTry){ s.misses++; s.fb = {kind:'miss', html:'<b>✏️ ' + (prefix || 'Not that one.') + '</b> ' + html + (noTry ? '' : ' Try again.')}; }
 function finish(p, s, msg){
