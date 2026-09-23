@@ -275,7 +275,7 @@ var CONFIG = {
   ENDPOINT: 'https://script.google.com/macros/s/AKfycbz8sy_FMZsIJuAOQOtbmRqBn-P03bvZCW-Dev7BEBSWBblCSi0RF1CMTMS39JCzWvTgOQ/exec',
   SALT1: 'northline-ctstate-2026',
   ACTIVITY: 'SIS1',
-  VERSION: 'sis1-2026-09-23a',
+  VERSION: 'sis1-2026-09-23b',
   SECTIONS: {'13046': {label:'CRN 13046', sub:'In person · Mon/Wed 12:30'}, '13901': {label:'CRN 13901', sub:'Live online · Mon/Wed 5:30'}}
 };
 var QS = (function(){ try { return new URLSearchParams(location.search); } catch(e){ return {get:function(){ return null; }}; } })();
@@ -312,7 +312,7 @@ async function sha256Hex(text){
 }
 async function postOnce(payload, timeoutMs){
   var ctrl = new AbortController();
-  var t = setTimeout(function(){ ctrl.abort(); }, timeoutMs || 25000);
+  var t = setTimeout(function(){ ctrl.abort(); }, timeoutMs || 60000);
   try {
     var res = await fetch(CONFIG.ENDPOINT, {method:'POST', body:JSON.stringify(payload), signal:ctrl.signal, credentials:'omit', cache:'no-store'});
     var text = await res.text();
@@ -324,7 +324,7 @@ async function postOnce(payload, timeoutMs){
 async function post(payload, timeoutMs){
   var r = null;
   for (var a = 0; a < 3; a++){
-    r = await postOnce(payload, timeoutMs || 25000);
+    r = await postOnce(payload, timeoutMs || 60000);
     if (r && (r.ok || (r.error !== 'timeout' && r.error !== 'network' && r.error !== 'bad_response'))) return r;
     await new Promise(function(res){ setTimeout(res, 1200 + a * 800); });
   }
@@ -397,11 +397,12 @@ async function signIn(){
   var f = st.form, btn = $('#signYes');
   var d = normalizeId(f.id), code = normalizeCode(f.code);
   btn.disabled = true; btn.textContent = 'Checking the class code…';
+  var wait = document.createElement('p'); wait.className = 'small'; wait.style.margin = '10px 0 0'; wait.textContent = '⏳ This can take up to one minute. Keep this page open.'; btn.parentNode.parentNode.appendChild(wait);
   var fx = $('#signFix'); if (fx) fx.disabled = true;
   var h1;
   try { h1 = await sha256Hex(CONFIG.SALT1 + '|' + d); }
   catch(e){ f.err = 'This browser could not scramble your number. Open this page in Chrome, Safari, or Edge.'; f.confirm = false; renderSignin(); return; }
-  var r = await post({action:'start', h1:h1, section:st.cls.section, activity:CONFIG.ACTIVITY, code:code, clientVersion:CONFIG.VERSION}, 25000);
+  var r = await post({action:'start', h1:h1, section:st.cls.section, activity:CONFIG.ACTIVITY, code:code, clientVersion:CONFIG.VERSION}, 60000);
   var unreachable = !r || r.error === 'timeout' || r.error === 'network' || r.error === 'bad_response';
   if (!unreachable && !r.ok){
     var why = {bad_code:'That class code is not right. Check it and type it again.',
@@ -429,7 +430,7 @@ async function submitFinal(){
     practicePicks:pts, practiceExplored:misses,
     checkAnswers:tp.map(function(i){ return String(st.pg[i].typed || '').replace(/\s+/g, ' ').trim().slice(0, 300); }),
     checkStatuses:tp.map(function(i){ var r = st.pg[i].result; return r ? r.score + '/3' : 'none'; })};
-  var r = await post(payload, 25000);
+  var r = await post(payload, 60000);
   c.submitting = false;
   if (r && r.ok){ c.submitted = r; c.recordId = r.recordId || c.recordId; c.submitError = null; }
   else c.submitError = (r && r.error) || 'network';
@@ -445,7 +446,7 @@ function recHTML(){
     return '<div class="fb good"><b>✅ Saved</b> at ' + esc(t) + ' for ' + lab + '. Record ID <b>' + esc(shortId(c.recordId)) + '</b>.' + again + '</div>' +
       '<p class="small">📸 Take a screenshot of this page. It is your proof. Your grade appears in Blackboard after the activity closes.</p>';
   }
-  if (c.submitting || !c.submitError) return '<div class="fb note"><b>⏳ Saving your result…</b> Keep this page open.</div>';
+  if (c.submitting || !c.submitError) return '<div class="fb note"><b>⏳ Saving your result…</b> This can take up to one minute. Keep this page open.</div>';
   var msgs = {window_closed:'The activity is closed now, so this result was not saved.', bad_code:'The class code did not match, so this result was not saved.',
     timeout:'The connection timed out.', network:'The connection failed.', bad_response:'The answer from the server was not readable.'};
   var m = msgs[c.submitError] || ('Error: ' + c.submitError + '.');
@@ -480,7 +481,7 @@ function renderLookup(){
     if (d.length !== 8){ f.out = '<div class="fb miss">Your number needs 8 digits. You typed ' + d.length + '.</div>'; renderLookup(); return; }
     btn.disabled = true; btn.textContent = 'Checking…';
     var h1; try { h1 = await sha256Hex(CONFIG.SALT1 + '|' + d); } catch(e){ h1 = null; }
-    var r = h1 ? await post({action:'lookup', h1:h1, section:st.cls.section, clientVersion:CONFIG.VERSION}, 25000) : null;
+    var r = h1 ? await post({action:'lookup', h1:h1, section:st.cls.section, clientVersion:CONFIG.VERSION}, 60000) : null;
     if (!r || !r.ok){ f.out = '<div class="fb miss">Could not reach the server. Check the Wi-Fi and try again.</div>'; renderLookup(); return; }
     var mine = (r.found || []).filter(function(x){ return x.activity === CONFIG.ACTIVITY; });
     var fmt = function(iso){ var dd = new Date(iso); return isNaN(dd) ? String(iso) : dd.toLocaleString([], {month:'short', day:'numeric', hour:'numeric', minute:'2-digit'}); };
